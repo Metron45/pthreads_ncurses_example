@@ -5,82 +5,89 @@
 #include <unistd.h>
 #include <time.h>
 
+#define MAX_SPEED 3
 #define SIZE 20
 #define X 0
 #define Y 1
-#define Option 2
+#define OPTION 2
+#define SPEED 3
 
-int *cursor_x, *cursor_y;
+int *cursor_x, *cursor_y, *control;
 int counter;
+int size;
 
 void move_position(int * data){
-    switch(data[Option]){
+    switch(data[OPTION]){
         case 0:
-            data[X]++;
+            data[X]+=data[SPEED];
             if(data[X] >= SIZE){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 1:
-            data[X]++;
-            data[Y]--;
+            data[X]+=data[SPEED];
+            data[Y]-=data[SPEED];
             if(data[X] >= SIZE || data[Y] <= 0){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 2:
-            data[Y]--;
+            data[Y]-=data[SPEED];
             if(data[Y] <= 0){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 3:
-            data[X]--;
-            data[Y]--;
+            data[X]-=data[SPEED];
+            data[Y]-=data[SPEED];
             if(data[X] <= 0 || data[Y] <= 0){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 4:
-            data[X]--;
+            data[X]-=data[SPEED];
             if(data[X] <= 0){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 5:
-            data[X]--;
-            data[Y]++;
+            data[X]-=data[SPEED];
+            data[Y]+=data[SPEED];
             if(data[X] <= 0 || data[Y] >= SIZE){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 6:
-            data[Y]++;
+            data[Y]+=data[SPEED];
             if(data[Y] >= SIZE){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 7:
-            data[X]++;
-            data[Y]++;
+            data[X]+=data[SPEED];
+            data[Y]+=data[SPEED];
             if(data[X] >= SIZE || data[Y] >= SIZE){
-                data[Option]=(data[Option]+4)%8;
+                data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
     }
 }
 
 void *thread_function( void * ptr ){
-    int pos[] = {SIZE/2,SIZE/2,0};
-    pos[Option] = (int)(rand() % 8);
+    int pos[] = {SIZE/2,SIZE/2,0,0};
+    pos[OPTION] = (int)(rand() % 8);
+    pos[SPEED] = (int)(rand() % MAX_SPEED) + 1;
     int thread_id = atoi((char*) ptr);
     for(int i = 0 ; i <= counter ; i++){
         sleep(1);
         //movement function
         move_position(pos);
         //write to critical section
+        while(control[thread_id] == -1){}
+        control[thread_id] = -1;
         cursor_x[thread_id] = pos[X];
         cursor_y[thread_id] = pos[Y];
+        control[thread_id] = 0;
     }
 }
 
@@ -88,15 +95,23 @@ void main(int argc, char *argv[]){
     pthread_t thread;
     int error;
     //number of threads
-    int threads = atoi(argv[1]); 
+    int threads = 4;
+    if(argc > 1){
+        threads = atoi(argv[1]); 
+    }
     //amount of repeats
-    counter = atoi(argv[2]);
+    counter = 25;
+    if(argc > 2){
+        counter = atoi(argv[2]); 
+    }
     //initialize critical ball position
     cursor_x = malloc(threads * sizeof(int));
     cursor_y = malloc(threads * sizeof(int));
+    control = malloc(threads * sizeof(int));
     for(int i = 0;i < threads; i++){
         cursor_x[i] = -1;
         cursor_y[i] = -1;
+        control[i] = 0;
     }
     //initialize thread_ids
     char **message = malloc(threads * sizeof(char));
@@ -122,16 +137,21 @@ void main(int argc, char *argv[]){
     for(int i=0;i <= counter;i++){
         sleep(1);
         clear();
-        move(SIZE + 1, 0);
+        move(SIZE + 1 + MAX_SPEED*2, 0);
         printw("Threads: %d Size: %d Count: %d", threads, SIZE, counter);
         for(int y = 0 ; y < threads ; y++){
-            move(SIZE + 2 + y, 0);
+            move(SIZE + 2 + y + MAX_SPEED*2, 0);
             printw("Thread: %d Position %d %d", y, cursor_y[y], cursor_x[y]);
+            while(control[i] == -1){
+                
+            }
             if(cursor_x[y] != -1 && cursor_y[y] != -1){
-                move(cursor_y[y],cursor_x[y]);
+                control[i] == -1;
+                move(cursor_y[y] + MAX_SPEED,cursor_x[y] + MAX_SPEED);
                 printw("o");
                 cursor_x[y] = -1;
                 cursor_y[y] = -1;
+                control[i] == 0;
             }
         }
         refresh();
