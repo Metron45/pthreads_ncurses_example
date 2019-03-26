@@ -15,57 +15,58 @@
 int *cursor_x, *cursor_y, *control;
 int counter;
 int size;
+bool finish;
 
 void move_position(int * data){
     switch(data[OPTION]){
         case 0:
-            data[X]+=data[SPEED];
+            data[X]++;
             if(data[X] >= SIZE){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 1:
-            data[X]+=data[SPEED];
-            data[Y]-=data[SPEED];
+            data[X]++;
+            data[Y]--;
             if(data[X] >= SIZE || data[Y] <= 0){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 2:
-            data[Y]-=data[SPEED];
+            data[Y]--;
             if(data[Y] <= 0){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 3:
-            data[X]-=data[SPEED];
-            data[Y]-=data[SPEED];
+            data[X]--;
+            data[Y]--;
             if(data[X] <= 0 || data[Y] <= 0){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 4:
-            data[X]-=data[SPEED];
+            data[X]--;
             if(data[X] <= 0){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 5:
-            data[X]-=data[SPEED];
-            data[Y]+=data[SPEED];
+            data[X]--;
+            data[Y]++;
             if(data[X] <= 0 || data[Y] >= SIZE){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break;
         case 6:
-            data[Y]+=data[SPEED];
+            data[Y]++;
             if(data[Y] >= SIZE){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
         break; 
         case 7:
-            data[X]+=data[SPEED];
-            data[Y]+=data[SPEED];
+            data[X]++;
+            data[Y]++;
             if(data[X] >= SIZE || data[Y] >= SIZE){
                 data[OPTION]=(data[OPTION]+4)%8;
             }
@@ -78,8 +79,8 @@ void *thread_function( void * ptr ){
     pos[OPTION] = (int)(rand() % 8);
     pos[SPEED] = (int)(rand() % MAX_SPEED) + 1;
     int thread_id = atoi((char*) ptr);
-    for(int i = 0 ; i <= counter ; i++){
-        sleep(1);
+    while(!finish){
+        sleep(5 / pos[SPEED]);
         //movement function
         move_position(pos);
         //write to critical section
@@ -91,9 +92,15 @@ void *thread_function( void * ptr ){
     }
 }
 
+void *thread_getch_function( void * ptr ){
+    getch();
+    finish = true;
+}
+
 void main(int argc, char *argv[]){ 
     pthread_t thread;
     int error;
+    finish = false;
     //number of threads
     int threads = 4;
     if(argc > 1){
@@ -129,12 +136,17 @@ void main(int argc, char *argv[]){
     for(int i=0; i < threads ; i++){
         error = pthread_create( &thread, NULL, thread_function, (void*) message[i]);
         if(error){
-            fprintf(stderr,"Error creating threads code: %d\n",error);
+            fprintf(stderr,"Error creating ball threads: %d\n",error);
             exit(EXIT_FAILURE);
         }
     }
+    error = pthread_create( &thread, NULL, thread_getch_function, (void*) message[0]);
+        if(error){
+            fprintf(stderr,"Error creating getch thtread: %d\n",error);
+            exit(EXIT_FAILURE);
+        }
     //refresh board
-    for(int i=0;i <= counter;i++){
+    while(!finish){
         sleep(1);
         clear();
         move(SIZE + 1 + MAX_SPEED*2, 0);
@@ -142,25 +154,28 @@ void main(int argc, char *argv[]){
         for(int y = 0 ; y < threads ; y++){
             move(SIZE + 2 + y + MAX_SPEED*2, 0);
             printw("Thread: %d Position %d %d", y, cursor_y[y], cursor_x[y]);
-            while(control[i] == -1){
+            while(control[y] == -1){
                 
             }
             if(cursor_x[y] != -1 && cursor_y[y] != -1){
-                control[i] == -1;
+                control[y] == -1;
                 move(cursor_y[y] + MAX_SPEED,cursor_x[y] + MAX_SPEED);
                 printw("o");
-                cursor_x[y] = -1;
-                cursor_y[y] = -1;
-                control[i] == 0;
+                control[y] == 0;
             }
         }
         refresh();
     }
     //finish threads
-    for(int i=0; i < threads ; i++){
+    for(int i=0; i < threads + 1 ; i++){
         pthread_join( thread, NULL);
     }
     //ending ncurses
     endwin();
+    //freeing space
+    free(cursor_x);
+    free(cursor_y);
+    free(control);
+    free(message);
     exit(EXIT_SUCCESS);
 } 
